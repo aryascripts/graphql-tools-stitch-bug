@@ -6,12 +6,12 @@
   "scripts": {
     "start": "concurrently \"yarn:start-*\"",
     "start-gateway": "ts-node-dev src/app.ts",
-    "start-shirts": "ts-node-dev src/services/shirt-service/app.ts",
-    "start-clothing": "ts-node-dev src/services/clothing-service/app.ts"
+    "start-age": "ts-node-dev src/services/puppy-age-service/app.ts",
+    "start-name": "ts-node-dev src/services/puppy-name-service/app.ts"
   },
   "dependencies": {
     "@graphql-tools/executor-http": "^1.0.0",
-    "@graphql-tools/stitch": "^9.0.0",
+    "@graphql-tools/stitch": "9.0.4",
     "@graphql-tools/utils": "^10.0.0",
     "@graphql-tools/wrap": "^10.0.0",
     "@types/node": "^20.0.0",

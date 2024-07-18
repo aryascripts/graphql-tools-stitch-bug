@@ -1,21 +1,21 @@
-import { buildSchema, parse, Kind} from 'graphql';
+import { buildSchema, parse, Kind } from 'graphql';
 import { createYoga } from 'graphql-yoga';
 import waitOn from 'wait-on';
 import { buildHTTPExecutor } from '@graphql-tools/executor-http';
 import { stitchSchemas } from '@graphql-tools/stitch';
-import { Executor } from '@graphql-tools/utils';
-import { schemaFromExecutor, TransformObjectFields } from '@graphql-tools/wrap';
+import { schemaFromExecutor } from '@graphql-tools/wrap';
 import { createServer } from 'http';
+import { debug } from 'console';
 
 async function makeGatewaySchema() {
   await waitOn({ resources: ['tcp:4001', 'tcp:4002'] });
-  const clothingExec = buildHTTPExecutor({
+  const ageExec = buildHTTPExecutor({
     endpoint: 'http://localhost:4001/graphql',
     headers: executorRequest => ({
       Authorization: executorRequest?.context?.authHeader,
     }),
   });
-  const shirtExec = buildHTTPExecutor({
+  const nameExec = buildHTTPExecutor({
     endpoint: 'http://localhost:4002/graphql',
     headers: executorRequest => ({
       Authorization: executorRequest?.context?.authHeader,
@@ -24,64 +24,43 @@ async function makeGatewaySchema() {
 
   const adminContext = { authHeader: 'Bearer my-app-to-app-token' };
 
-  interface documentSourceServiceOptions {
-    graphQLURL?: string;
-    serviceName?: string;
-  }
-
-  const documentSourceService = ({
-    serviceName = 'unknown',
-  }: documentSourceServiceOptions) => {
-    return new TransformObjectFields((_typeName, _fieldName, fieldConfig) => {
-      let service = serviceName;
-
-      const commentToAdd = `Resolved by ${service}.`;
-
-      if (fieldConfig.astNode) {
-        fieldConfig.astNode = {
-          ...fieldConfig.astNode,
-          description: {
-            ...fieldConfig.astNode?.description,
-            kind: Kind.STRING,
-            value: fieldConfig.astNode?.description
-              ? fieldConfig.astNode?.description.value.concat(`\n${commentToAdd}`)
-              : commentToAdd,
-          },
-        };
-      }
-
-      fieldConfig.description = fieldConfig.description
-        ? fieldConfig.description.concat(`\n${commentToAdd}`)
-        : commentToAdd;
-
-      return fieldConfig;
-    });
-  };
-
   return stitchSchemas({
     subschemas: [
       {
-        schema: await schemaFromExecutor(clothingExec, adminContext),
-        executor: clothingExec,
+        schema: await schemaFromExecutor(ageExec, adminContext),
+        executor: ageExec,
         merge: {
-          Shirt: {
-            fieldName: 'clothingById',
-            args: originalObject => ({ id: originalObject.id })
+          Puppy: {
+            fieldName: 'puppies',
+            selectionSet: '{ id }',
+            key: ({ id }) => id,
+            argsFromKeys: keys => ({ ids: keys }),
+            valuesFromResults: (
+              results, keys,
+            ) => {
+              debug('results', results);
+              debug('keys', keys);
+              return results;
+            },
           },
         },
-        transforms: [documentSourceService({ serviceName: 'clothing-service' })],
       },
       {
-        schema: await schemaFromExecutor(shirtExec, adminContext),
+        schema: await schemaFromExecutor(nameExec, adminContext),
+        executor: nameExec,
         merge: {
-          Shirt: {
-            fieldName: 'shirtById',
-            selectionSet: '{ id }',
-            args: originalObject => ({ id: originalObject.id })
+          Puppy: {
+            fieldName: 'puppyByID',
+            args: originalObject => ({ id: originalObject.id }),
+            valuesFromResults: (
+              results, keys,
+            ) => {
+              debug('results', results);
+              debug('keys', keys);
+              return results;
+            },
           },
         },
-        executor: shirtExec,
-        transforms: [documentSourceService({ serviceName: 'shirt-service' })],
       },
     ],
     mergeTypes: true,
@@ -94,6 +73,15 @@ export const gatewayApp = createYoga({
     authHeader: request.headers.get('authorization'),
   }),
   maskedErrors: false,
+  graphiql: {
+    defaultQuery: `
+      query MyQuery {
+        puppyByID(id: "1") {
+        name
+        age
+      }
+    }`,
+  }
 });
 
 const server = createServer(gatewayApp);
