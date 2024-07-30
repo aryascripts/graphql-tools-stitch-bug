@@ -6,6 +6,7 @@ import { stitchSchemas } from '@graphql-tools/stitch';
 import { schemaFromExecutor } from '@graphql-tools/wrap';
 import { createServer } from 'http';
 import { debug } from 'console';
+import { print } from 'graphql';
 
 async function makeGatewaySchema() {
   await waitOn({ resources: ['tcp:4001', 'tcp:4002'] });
@@ -28,7 +29,12 @@ async function makeGatewaySchema() {
     subschemas: [
       {
         schema: await schemaFromExecutor(ageExec, adminContext),
-        executor: ageExec,
+        executor: (...args) => {
+          // get the query from args
+          const query = print(args[0].document);
+          console.log(query);
+          return ageExec(...args);
+        },
         merge: {
           Puppy: {
             fieldName: 'puppies',
