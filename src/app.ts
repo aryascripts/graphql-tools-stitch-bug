@@ -30,7 +30,6 @@ async function makeGatewaySchema() {
       {
         schema: await schemaFromExecutor(ageExec, adminContext),
         executor: (...args) => {
-          // get the query from args
           const query = print(args[0].document);
           console.log(query);
           return ageExec(...args);
